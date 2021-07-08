@@ -14,39 +14,30 @@
 // FITNESS FOR A PARTICULAR PURPOSE. See the DOOM Source Code License
 // for more details.
 //
-// DESCRIPTION:
-//	Endianess handling, swapping 16bit and 32bit.
-//
-//-----------------------------------------------------------------------------
-
-
-#ifndef __M_SWAP__
-#define __M_SWAP__
-
-
-#ifdef __GNUG__
-#pragma interface
-#endif
-
-
-// Endianess handling.
-// WAD files are stored little endian.
-#ifdef __BIG_ENDIAN__
-unsigned short	SwapSHORT(unsigned short);
-unsigned long	SwapLONG(unsigned long);
-#define SHORT(x)	((short)SwapSHORT((unsigned short) (x)))
-#define LONG(x)         ((long)SwapLONG((unsigned long) (x)))
-#else
-#define SHORT(x)	(x)
-#define LONG(x)         (x)
-#endif
-
-
-
-
-#endif
-//-----------------------------------------------------------------------------
-//
 // $Log:$
 //
+// DESCRIPTION:
+//	Main program, simply calls D_DoomMain high level loop.
+//
 //-----------------------------------------------------------------------------
+
+static const char
+rcsid[] = "$Id: i_main.c,v 1.4 1997/02/03 22:45:10 b1 Exp $";
+
+#include "doomdef.h"
+
+#include "m_argv.h"
+#include "d_main.h"
+
+int
+main
+( int		argc,
+  char**	argv ) 
+{ 
+    myargc = argc; 
+    myargv = argv; 
+ 
+    D_DoomMain (); 
+
+    return 0;
+} 

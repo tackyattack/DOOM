@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "stdio.h": "c",
+        "z_zone.h": "c",
+        "ioctl.h": "c"
+    }
+}
