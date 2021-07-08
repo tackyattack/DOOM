@@ -351,28 +351,55 @@ void I_UpdateNoBlit(void)
 	// what is this?
 }
 
+#define FINAL_SCREEN_WIDTH_PX 640
+#define FINAL_SCREEN_HEIGHT_PX 480
+#define FINAL_SCREEN_BYTES_PER_PX 4
+const uint32_t final_screen_scale = FINAL_SCREEN_WIDTH_PX/SCREENWIDTH;
 void render_to_screen(uint8_t *buf, uint32_t frame_bytes);
 //
 // I_FinishUpdate
 //
-uint8_t fbuf[640*480*4];
+uint8_t fbuf_final[FINAL_SCREEN_WIDTH_PX * FINAL_SCREEN_HEIGHT_PX * FINAL_SCREEN_BYTES_PER_PX];
+uint8_t fbuf_small[FINAL_SCREEN_WIDTH_PX * FINAL_SCREEN_HEIGHT_PX * FINAL_SCREEN_BYTES_PER_PX];
+
+void write_pixle(uint8_t *fbuf, uint8_t r, uint8_t g, uint8_t b, uint32_t x, uint32_t y, uint32_t buf_width, uint32_t buf_height)
+{
+	uint32_t pos = x * FINAL_SCREEN_BYTES_PER_PX + buf_width * FINAL_SCREEN_BYTES_PER_PX * y;
+	fbuf[pos++] = b;
+	fbuf[pos++] = g;
+	fbuf[pos++] = r;
+	fbuf[pos++] = 255;
+}
+
+void read_pixle(uint8_t *fbuf, uint8_t *r, uint8_t *g, uint8_t *b, uint32_t x, uint32_t y, uint32_t buf_width, uint32_t buf_height)
+{
+	uint32_t pos = x * FINAL_SCREEN_BYTES_PER_PX + buf_width * FINAL_SCREEN_BYTES_PER_PX * y;
+	*b = fbuf[pos++];
+	*g = fbuf[pos++];
+	*r = fbuf[pos++];
+}
+
 void I_FinishUpdate(void)
 {
 
 	uint32_t pix_pos = 0;
-	uint32_t i = 0;
-	while(pix_pos < SCREENWIDTH * SCREENHEIGHT) {
-		fbuf[i++] = colors[screens[0][pix_pos]].red;
-		fbuf[i++] = colors[screens[0][pix_pos]].green;
-		fbuf[i++] = colors[screens[0][pix_pos]].blue;
-		fbuf[i++] = 255;
-		fbuf[i++] = colors[screens[0][pix_pos]].red;
-		fbuf[i++] = colors[screens[0][pix_pos]].green;
-		fbuf[i++] = colors[screens[0][pix_pos]].blue;
-		fbuf[i++] = 255;
+	while (pix_pos < SCREENWIDTH * SCREENHEIGHT)
+	{
+		uint32_t x = pix_pos % SCREENWIDTH;
+		uint32_t y = pix_pos / SCREENWIDTH;
+		write_pixle(fbuf_small, colors[screens[0][pix_pos]].red, colors[screens[0][pix_pos]].green, colors[screens[0][pix_pos]].blue, x, y, 640, 480);
 		pix_pos++;
 	}
-	render_to_screen(fbuf, 640*480*4);
+	for (uint32_t x = 0; x < FINAL_SCREEN_WIDTH_PX; x++)
+	{
+		for (uint32_t y = 0; y < FINAL_SCREEN_HEIGHT_PX; y++)
+		{
+			uint8_t r,g,b;
+			read_pixle(fbuf_small, &r, &g, &b, x/final_screen_scale , y/final_screen_scale, FINAL_SCREEN_WIDTH_PX, FINAL_SCREEN_HEIGHT_PX);
+			write_pixle(fbuf_final, r, g, b, x, y, FINAL_SCREEN_WIDTH_PX, FINAL_SCREEN_HEIGHT_PX);
+		}
+	}
+	render_to_screen(fbuf_final, FINAL_SCREEN_WIDTH_PX * FINAL_SCREEN_HEIGHT_PX * FINAL_SCREEN_BYTES_PER_PX);
 
 	//     static int	lasttic;
 	//     int		tics;
