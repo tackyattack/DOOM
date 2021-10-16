@@ -9,7 +9,8 @@ uint8_t translate_key(SDL_Keycode keycode);
 
 typedef struct _event_item
 {
-    TAILQ_ENTRY(_event_item) nodes;
+    TAILQ_ENTRY(_event_item)
+    nodes;
     SDL_KeyboardEvent keyboard_event;
 } event_item;
 TAILQ_HEAD(event_queue_s, _event_item)
@@ -23,6 +24,13 @@ SDL_Window *window = NULL;
 SDL_Texture *sdlTexture = NULL;
 SDL_Renderer *gRenderer = NULL;
 uint8_t framebuffer[640 * 480 * 4];
+
+static uint8_t *cur_buf;
+static uint8_t *audio_pos;
+static uint32_t audio_len = 0;
+static uint32_t audio_in_pos = 0;
+uint8_t audio_buf_A[2048] = {0};
+uint8_t audio_buf_B[2048] = {0};
 
 // eventually move these into a their own layer that is a platform
 // abstraction.
@@ -59,6 +67,13 @@ uint8_t platform_get_next_event(event_t *event_out)
         rc = 0;
     }
     return rc;
+}
+
+void platform_write_audio(uint8_t *buf, uint32_t length) {
+    uint32_t bytes_left = sizeof(audio_buf_A) - audio_in_pos;
+    uint32_t length_to_write = (length > bytes_left ? bytes_left : length);
+    memcpy(&cur_buf[audio_in_pos], buf, length_to_write);
+    audio_in_pos += length_to_write;
 }
 
 uint8_t translate_key(SDL_Keycode keycode)
@@ -217,13 +232,56 @@ static void start_app(void)
     pthread_create(&doom_thread_id, NULL, app_thread, NULL);
 }
 
+void audio_callback(void *unused, uint8_t *stream, int len)
+{
+    if (audio_len == 0)
+    {
+        audio_len = audio_in_pos;
+        if(cur_buf == audio_buf_A) {
+            cur_buf = audio_buf_B;
+        } else {
+            cur_buf = audio_buf_A;
+        }
+        audio_in_pos = 0;
+        audio_pos = cur_buf;
+    }
+
+    len = (len > audio_len ? audio_len : len);
+    SDL_memcpy (stream, audio_pos, len); 
+    //SDL_MixAudio(stream, audio_pos, len, SDL_MIX_MAXVOLUME);
+    audio_pos += len;
+    audio_len -= len;
+}
+
+static void init_sound(void)
+{
+    cur_buf = audio_buf_A;
+    SDL_AudioSpec fmt;
+    fmt.freq = 11025;
+    fmt.format = AUDIO_S16;
+    fmt.channels = 2;
+    fmt.samples = 512;
+    fmt.callback = audio_callback;
+    fmt.userdata = NULL;
+
+    /* Open the audio device and start playing sound! */
+    if (SDL_OpenAudio(&fmt, NULL) < 0)
+    {
+        fprintf(stderr, "Unable to open audio: %s\n", SDL_GetError());
+        exit(1);
+    }
+    SDL_PauseAudio(0);
+}
+
 int main(int argc,
          char **argv)
 {
     myargc = argc;
     myargv = argv;
     TAILQ_INIT(&event_queue);
+    init_sound();
     start_app();
     sdl_loop();
+    SDL_CloseAudio();
     return 0;
 }
