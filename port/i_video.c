@@ -61,6 +61,15 @@ int XShmGetEventBase(Display *dpy); // problems with g++?
 
 #include "doomdef.h"
 
+void platform_render_to_screen(uint8_t *buf, uint32_t frame_bytes);
+uint8_t platform_get_next_event(event_t *event_out);
+#define FINAL_SCREEN_WIDTH_PX 640
+#define FINAL_SCREEN_HEIGHT_PX 480
+#define FINAL_SCREEN_BYTES_PER_PX 4
+const uint32_t final_screen_scale = FINAL_SCREEN_WIDTH_PX/SCREENWIDTH;
+uint8_t fbuf_final[FINAL_SCREEN_WIDTH_PX * FINAL_SCREEN_HEIGHT_PX * FINAL_SCREEN_BYTES_PER_PX];
+uint8_t fbuf_small[FINAL_SCREEN_WIDTH_PX * FINAL_SCREEN_HEIGHT_PX * FINAL_SCREEN_BYTES_PER_PX];
+
 typedef struct
 {
 	unsigned long pixel;			 /* pixel value */
@@ -199,55 +208,134 @@ static int lastmousey = 0;
 boolean mousemoved = false;
 boolean shmFinished;
 
+// void I_GetEvent(void)
+// {
+
+// 	// event_t event;
+
+// 	// // put event-grabbing stuff in here
+// 	// XNextEvent(X_display, &X_event);
+// 	// switch (X_event.type)
+// 	// {
+// 	//   case KeyPress:
+// 	// event.type = ev_keydown;
+// 	// event.data1 = xlatekey();
+// 	// D_PostEvent(&event);
+// 	// // fprintf(stderr, "k");
+// 	// break;
+// 	//   case KeyRelease:
+// 	// event.type = ev_keyup;
+// 	// event.data1 = xlatekey();
+// 	// D_PostEvent(&event);
+// 	// // fprintf(stderr, "ku");
+// 	// break;
+// 	//   case ButtonPress:
+// 	// event.type = ev_mouse;
+// 	// event.data1 =
+// 	//     (X_event.xbutton.state & Button1Mask)
+// 	//     | (X_event.xbutton.state & Button2Mask ? 2 : 0)
+// 	//     | (X_event.xbutton.state & Button3Mask ? 4 : 0)
+// 	//     | (X_event.xbutton.button == Button1)
+// 	//     | (X_event.xbutton.button == Button2 ? 2 : 0)
+// 	//     | (X_event.xbutton.button == Button3 ? 4 : 0);
+// 	// event.data2 = event.data3 = 0;
+// 	// D_PostEvent(&event);
+// 	// // fprintf(stderr, "b");
+// 	// break;
+// 	//   case ButtonRelease:
+// 	// event.type = ev_mouse;
+// 	// event.data1 =
+// 	//     (X_event.xbutton.state & Button1Mask)
+// 	//     | (X_event.xbutton.state & Button2Mask ? 2 : 0)
+// 	//     | (X_event.xbutton.state & Button3Mask ? 4 : 0);
+// 	// // suggest parentheses around arithmetic in operand of |
+// 	// event.data1 =
+// 	//     event.data1
+// 	//     ^ (X_event.xbutton.button == Button1 ? 1 : 0)
+// 	//     ^ (X_event.xbutton.button == Button2 ? 2 : 0)
+// 	//     ^ (X_event.xbutton.button == Button3 ? 4 : 0);
+// 	// event.data2 = event.data3 = 0;
+// 	// D_PostEvent(&event);
+// 	// // fprintf(stderr, "bu");
+// 	// break;
+// 	//   case MotionNotify:
+// 	// event.type = ev_mouse;
+// 	// event.data1 =
+// 	//     (X_event.xmotion.state & Button1Mask)
+// 	//     | (X_event.xmotion.state & Button2Mask ? 2 : 0)
+// 	//     | (X_event.xmotion.state & Button3Mask ? 4 : 0);
+// 	// event.data2 = (X_event.xmotion.x - lastmousex) << 2;
+// 	// event.data3 = (lastmousey - X_event.xmotion.y) << 2;
+
+// 	// if (event.data2 || event.data3)
+// 	// {
+// 	//     lastmousex = X_event.xmotion.x;
+// 	//     lastmousey = X_event.xmotion.y;
+// 	//     if (X_event.xmotion.x != X_width/2 &&
+// 	// 	X_event.xmotion.y != X_height/2)
+// 	//     {
+// 	// 	D_PostEvent(&event);
+// 	// 	// fprintf(stderr, "m");
+// 	// 	mousemoved = false;
+// 	//     } else
+// 	//     {
+// 	// 	mousemoved = true;
+// 	//     }
+// 	// }
+// 	// break;
+
+// 	//   case Expose:
+// 	//   case ConfigureNotify:
+// 	// break;
+
+// 	//   default:
+// 	// if (doShm && X_event.type == X_shmeventtype) shmFinished = true;
+// 	// break;
+// 	// }
+// }
+
 void I_GetEvent(void)
 {
 
-	// event_t event;
+	event_t event;
+	if(platform_get_next_event(&event)) {
+		D_PostEvent(&event);
+	}
 
-	// // put event-grabbing stuff in here
-	// XNextEvent(X_display, &X_event);
-	// switch (X_event.type)
+	// switch (gui_event.type)
 	// {
 	//   case KeyPress:
 	// event.type = ev_keydown;
 	// event.data1 = xlatekey();
 	// D_PostEvent(&event);
-	// // fprintf(stderr, "k");
 	// break;
 	//   case KeyRelease:
 	// event.type = ev_keyup;
 	// event.data1 = xlatekey();
 	// D_PostEvent(&event);
-	// // fprintf(stderr, "ku");
 	// break;
-	//   case ButtonPress:
+	// case ButtonPress:
 	// event.type = ev_mouse;
-	// event.data1 =
-	//     (X_event.xbutton.state & Button1Mask)
-	//     | (X_event.xbutton.state & Button2Mask ? 2 : 0)
-	//     | (X_event.xbutton.state & Button3Mask ? 4 : 0)
-	//     | (X_event.xbutton.button == Button1)
-	//     | (X_event.xbutton.button == Button2 ? 2 : 0)
-	//     | (X_event.xbutton.button == Button3 ? 4 : 0);
+	// event.data1 = 
+	// btn1 ? (1<<0) : 0 |
+	// btn2 ? (1<<1) : 0 |
+	// btn3 ? (1<<2) : 0;
 	// event.data2 = event.data3 = 0;
 	// D_PostEvent(&event);
-	// // fprintf(stderr, "b");
 	// break;
 	//   case ButtonRelease:
 	// event.type = ev_mouse;
 	// event.data1 =
-	//     (X_event.xbutton.state & Button1Mask)
-	//     | (X_event.xbutton.state & Button2Mask ? 2 : 0)
-	//     | (X_event.xbutton.state & Button3Mask ? 4 : 0);
-	// // suggest parentheses around arithmetic in operand of |
+	// btn1 ? (1<<0) : 0 |
+	// btn2 ? (1<<1) : 0 |
+	// btn3 ? (1<<2) : 0;
 	// event.data1 =
 	//     event.data1
-	//     ^ (X_event.xbutton.button == Button1 ? 1 : 0)
-	//     ^ (X_event.xbutton.button == Button2 ? 2 : 0)
-	//     ^ (X_event.xbutton.button == Button3 ? 4 : 0);
+	// 	^ (btn1 ? (1<<0) : 0)
+	// 	^ (btn2 ? (1<<1) : 0)
+	// 	^ (btn3 ? (1<<2) : 0);
 	// event.data2 = event.data3 = 0;
 	// D_PostEvent(&event);
-	// // fprintf(stderr, "bu");
 	// break;
 	//   case MotionNotify:
 	// event.type = ev_mouse;
@@ -273,14 +361,6 @@ void I_GetEvent(void)
 	// 	mousemoved = true;
 	//     }
 	// }
-	// break;
-
-	//   case Expose:
-	//   case ConfigureNotify:
-	// break;
-
-	//   default:
-	// if (doShm && X_event.type == X_shmeventtype) shmFinished = true;
 	// break;
 	// }
 }
@@ -315,12 +395,11 @@ void I_GetEvent(void)
 //
 void I_StartTic(void)
 {
-
 	// if (!X_display)
 	// return;
 
 	// while (XPending(X_display))
-	// I_GetEvent();
+	I_GetEvent();
 
 	// // Warp the pointer back to the middle of the window
 	// //  or it will wander off - that is, the game will
@@ -350,17 +429,6 @@ void I_UpdateNoBlit(void)
 {
 	// what is this?
 }
-
-#define FINAL_SCREEN_WIDTH_PX 640
-#define FINAL_SCREEN_HEIGHT_PX 480
-#define FINAL_SCREEN_BYTES_PER_PX 4
-const uint32_t final_screen_scale = FINAL_SCREEN_WIDTH_PX/SCREENWIDTH;
-void render_to_screen(uint8_t *buf, uint32_t frame_bytes);
-//
-// I_FinishUpdate
-//
-uint8_t fbuf_final[FINAL_SCREEN_WIDTH_PX * FINAL_SCREEN_HEIGHT_PX * FINAL_SCREEN_BYTES_PER_PX];
-uint8_t fbuf_small[FINAL_SCREEN_WIDTH_PX * FINAL_SCREEN_HEIGHT_PX * FINAL_SCREEN_BYTES_PER_PX];
 
 void write_pixle(uint8_t *fbuf, uint8_t r, uint8_t g, uint8_t b, uint32_t x, uint32_t y, uint32_t buf_width, uint32_t buf_height)
 {
@@ -399,7 +467,7 @@ void I_FinishUpdate(void)
 			write_pixle(fbuf_final, r, g, b, x, y, FINAL_SCREEN_WIDTH_PX, FINAL_SCREEN_HEIGHT_PX);
 		}
 	}
-	render_to_screen(fbuf_final, FINAL_SCREEN_WIDTH_PX * FINAL_SCREEN_HEIGHT_PX * FINAL_SCREEN_BYTES_PER_PX);
+	platform_render_to_screen(fbuf_final, FINAL_SCREEN_WIDTH_PX * FINAL_SCREEN_HEIGHT_PX * FINAL_SCREEN_BYTES_PER_PX);
 
 	//     static int	lasttic;
 	//     int		tics;
